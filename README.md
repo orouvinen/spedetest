@@ -9,6 +9,7 @@ Each correct button press gives one point and a mistake means game over.
 The components laid out on a breadboard:
 ![BB](spedepeli_bb.png?raw=true)
 
+- 4x LED
 - 4x 220ohm resistor
 - 4 push buttons
 - piezo speaker
