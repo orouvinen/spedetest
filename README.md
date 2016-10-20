@@ -16,8 +16,8 @@ The components laid out on a breadboard:
 ## How to play
 When powered up, the game is in "main menu".
 
-To play: press the two rightmost buttons down at the same time
-To hear last score: -"- leftmost buttons -"-
+- To play: press the two rightmost buttons down at the same time
+- To hear last score: -"- leftmost buttons -"-
 
 The score is reported by a series of beeps from the piezo speaker.
 One long beep for each 10 points, and after that one short beep for each single point.
