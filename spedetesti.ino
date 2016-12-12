@@ -65,11 +65,18 @@ void set_led_state(int led, int state)
 void loop()
 {
      unsigned long now = millis();
+     static bool showing_waiting_message = false;
 
      if (game_state == STOPPED) {
+          if (!showing_waiting_message) {
+               print_waiting_message();
+               showing_waiting_message = true;
+          }
+
           /* Press two rightmost buttons to start the game */
           if (button_pressed(2) && button_pressed(3)) {
                game_state = RUNNING;
+               showing_waiting_message = false; // make sure the message prints aftear the game is over
                reset_game();
                next_led_time = now + btn_delay;
           } else if (button_pressed(0) && button_pressed(1)) {
@@ -109,6 +116,13 @@ void loop()
      }
      handle_input();
 }
+
+void print_score(void)
+{
+     lcd.setCursor(0, 0);
+     lcd.print(score);
+}
+
 
 void print_waiting_message(void)
 {
@@ -153,6 +167,7 @@ void handle_button(int button)
           score++;
           last_handled = led;
           set_led_state(led, LOW);
+          print_score();
      }
 }
 
@@ -173,7 +188,14 @@ void game_over()
      for (i = 0; i < 4; i++)
           digitalWrite(led_pins[i], LOW);
 
-     report_score();
+     lcd.clear();
+     lcd.setCursor(0, 0); lcd.print("Voi rahma!");
+     lcd.setCursor(0, 1); lcd.print("Pisteet: ");
+     lcd.print(score);
+     //lcd.print(score);
+     delay(5000);
+
+     //report_score();
 }
 
 void report_score()
@@ -193,7 +215,7 @@ void reset_game()
      btn_delay = init_delay;
      last_handled = -1;
      score = 0;
-     printWaitingMessage();
+     lcd.clear();
 }
 
 void queue_reset(void)
