@@ -1,9 +1,9 @@
+#include <LiquidCrystal.h>
 /*
  * I/O pins
  */
-const int led_pins[] = {2, 3, 4, 5};
+const int led_pins[] = {14, 15, 16, 17};  // Use analog pins from A0-A3 as regular GPIO pins for feeding the LEDs
 const int btn_pins[] = {8, 9, 10, 11};
-const int snd_pin = 6;
 
 /*
  * Timing
@@ -34,16 +34,8 @@ enum state { STOPPED, RUNNING };
 int game_state = STOPPED;
 int score = 0;
 
-/*
- * Score is reported with a speaker.
- * Long beeps = tens
- * Short beeps = ones
- */
-#define TENS_DURATION 500
-#define TENS_FREQ     100
-#define ONES_DURATION 250
-#define ONES_FREQ     100
 
+LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 
 void setup()
 {
@@ -54,6 +46,8 @@ void setup()
           pinMode(led_pins[i], OUTPUT);
           pinMode(btn_pins[i], INPUT_PULLUP);
      }
+     lcd.begin(20, 4);
+     lcd.setCursor(0, 0);
 
      /* Initialise random number generator */
      randomSeed(analogRead(0));
@@ -116,6 +110,14 @@ void loop()
      handle_input();
 }
 
+void print_waiting_message(void)
+{
+     lcd.clear();
+     lcd.setCursor(0, 0); lcd.print("Paras tulos:");
+     lcd.setCursor(0, 1); lcd.print("=== ORBI "); lcd.print("118 ===");
+     lcd.setCursor(0, 3); lcd.print("Napista lahtee...");
+}
+
 void handle_input(void)
 {
      int i;
@@ -176,21 +178,6 @@ void game_over()
 
 void report_score()
 {
-     int i;
-     int score_tens = score / 10;
-     int score_ones = score % 10;
-
-     for (i = 0; i < score_tens; i++) {
-          tone(snd_pin, TENS_FREQ, TENS_DURATION);
-          delay(750);
-     }
-
-     delay(500);
-
-     for (i = 0; i < score_ones; i++) {
-          tone(snd_pin, ONES_FREQ, ONES_DURATION);
-          delay(500);
-     }
 }
 
 void reset_game()
@@ -206,6 +193,7 @@ void reset_game()
      btn_delay = init_delay;
      last_handled = -1;
      score = 0;
+     printWaitingMessage();
 }
 
 void queue_reset(void)
