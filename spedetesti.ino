@@ -1,9 +1,20 @@
 #include <LiquidCrystal.h>
+#include <EEPROM.h>
+
 /*
  * I/O pins
  */
-const int led_pins[] = {14, 15, 16, 17};  // Use analog pins from A0-A3 as regular GPIO pins for feeding the LEDs
+// Use analog pins from A0-A3 as regular GPIO pins for feeding the LEDs
+const int led_pins[] = {14, 15, 16, 17};
+// Button pins for buttons from left to right
 const int btn_pins[] = {8, 9, 10, 11};
+
+// Button functions for entering name tag for hiscore
+#define BUTTON_VALUE_DOWN 0  // Scroll to next letter in alphabet
+#define BUTTON_VALUE_UP   1  // Scroll to previous letter in alphabet
+#define BUTTON_NEXT       2  // Move on to next character
+#define BUTTON_ENTER      3  // Confirm
+#define NO_BUTTON -1
 
 /*
  * Timing
@@ -29,10 +40,19 @@ int queue_end   = 0;
  * being held down as multiple clicks on the same button
  */
 int last_handled = -1;
+int last_button = -1;
 
 enum state { STOPPED, RUNNING };
 int game_state = STOPPED;
-int score = 0;
+unsigned short score = 0;
+
+#define EEPROM_HISCORE_ADDR 0x100
+#define HISCORE_HEADER 0x0771
+struct hiscore {
+     unsigned short header;
+     unsigned short score;
+     char nametag[8+1];
+} hiscore;
 
 
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
@@ -40,7 +60,13 @@ LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 void setup()
 {
      int i;
-
+     /*
+     hiscore.header = 0;
+     hiscore.score = 0;
+     strcpy(hiscore.nametag, "        ");
+     EEPROM.put(EEPROM_HISCORE_ADDR, hiscore);
+     while(1);
+     */
      /* Initialise I/O pins */
      for (i = 0; i < 4; i++) {
           pinMode(led_pins[i], OUTPUT);
@@ -76,12 +102,11 @@ void loop()
           /* Press two rightmost buttons to start the game */
           if (button_pressed(2) && button_pressed(3)) {
                game_state = RUNNING;
-               showing_waiting_message = false; // make sure the message prints aftear the game is over
+               // make sure the message prints after the game is over
+               showing_waiting_message = false;
+
                reset_game();
                next_led_time = now + btn_delay;
-          } else if (button_pressed(0) && button_pressed(1)) {
-               /* Report last score with two leftmost buttons */
-               report_score();
           }
           return;
      }
@@ -117,6 +142,20 @@ void loop()
      handle_input();
 }
 
+void print_eeprom_hiscore(void)
+{
+     EEPROM.get(EEPROM_HISCORE_ADDR, hiscore);
+     if (hiscore.header != HISCORE_HEADER) {
+          strcpy(hiscore.nametag, "");
+          lcd.print("--");
+     } else {
+          lcd.print(hiscore.nametag);
+          lcd.print(": ");
+          lcd.print(hiscore.score);
+     }
+}
+
+
 void print_score(void)
 {
      lcd.setCursor(0, 0);
@@ -128,35 +167,47 @@ void print_waiting_message(void)
 {
      lcd.clear();
      lcd.setCursor(0, 0); lcd.print("Paras tulos:");
-     lcd.setCursor(0, 1); lcd.print("=== ORBI "); lcd.print("118 ===");
+     lcd.setCursor(0, 1); print_eeprom_hiscore();
      lcd.setCursor(0, 3); lcd.print("Napista lahtee...");
 }
 
 void handle_input(void)
 {
-     int i;
+     int button;
 
      /* Avoid reading the "game start" click when no leds have yet been lit up */
      if (queue_end == 0)
           return;
 
-     for (i = 0; i < 4; i++) {
-          /*
-           * Handle pressed button (but avoid accidental "double" click processing)
-           */
-          if (button_pressed(i) && i != last_handled) {
-               handle_button(i);
-               break;
+     if ((button = get_pressed_button()) != NO_BUTTON)
+          handle_button(button);
+}
+
+
+// Checks if any of the buttons have been pressed.
+// If a button has been pressed, returns the button number (0-3).
+// Returns -1 if no button was pressed.
+int get_pressed_button()
+{
+     for (int i = 0; i < sizeof(btn_pins) / sizeof(btn_pins[0]); i++) {
+          // Handle pressed button (but avoid accidental "double" click processing)
+          if (button_pressed(i)) {
+               if (last_button == i)
+                    return NO_BUTTON;
+
+               last_button = i;
+               return i;
           }
      }
+     last_button = NO_BUTTON;
+     return NO_BUTTON;
 }
 
 
 void handle_button(int button)
 {
-     int led;
+     int led = queue_pop();
 
-     led = queue_pop();
      /* Don't count it as a mistake to try and preclick */
      if (led == -1)
           return;
@@ -178,7 +229,6 @@ void game_over()
      /*
       * Flash the leds once and report score
       */
-
      game_state = STOPPED;
      for (i = 0; i < 4; i++)
           digitalWrite(led_pins[i], HIGH);
@@ -189,18 +239,98 @@ void game_over()
           digitalWrite(led_pins[i], LOW);
 
      lcd.clear();
-     lcd.setCursor(0, 0); lcd.print("Voi rahma!");
-     lcd.setCursor(0, 1); lcd.print("Pisteet: ");
-     lcd.print(score);
-     //lcd.print(score);
-     delay(5000);
 
-     //report_score();
+     if (score > hiscore.score) {
+          get_hiscore_nametag();
+          hiscore.score = score;
+          hiscore.header = HISCORE_HEADER;
+          EEPROM.put(EEPROM_HISCORE_ADDR, hiscore);
+     } else {
+          lcd.setCursor(0, 0); lcd.print("Voi rahma!");
+          lcd.setCursor(0, 1); lcd.print("Pisteet: ");
+          lcd.print(score);
+          delay(5000);
+     }
 }
 
-void report_score()
+
+void get_hiscore_nametag(void)
 {
+     lcd.clear();
+     strcpy(hiscore.nametag, "");
+     adjustStringValue("VOEJMAHOTON!", "ANNA NIMI:", hiscore.nametag, 8);
 }
+
+// Prompts user for string input.
+// Before input field, two lines of headings can be printed (heading, subheading).
+// Third argument is pointer to the destination string, which must be able to hold
+// maxLength characters plus terminating nul char.
+void adjustStringValue(
+          const char *heading,
+          const char *subHeading,
+          char *string,
+          int maxLength)
+{
+     lcd.clear();
+     lcd.print(heading);
+     lcd.setCursor(0, 1);
+     lcd.print(subHeading);
+
+     // If empty destination string was passed,
+     // then initialize it with 'A' so there's something
+     // to show to the user
+     if (string[0] == '\0')
+          string[0] = 'A';
+
+     lcd.setCursor(0, 2);
+     lcd.print(string);
+     lcd.setCursor(0, 2);
+     lcd.cursor();
+     lcd.blink();
+
+     int i = 0;
+     for (;;) {
+          int button = get_pressed_button();
+
+          if (button == BUTTON_VALUE_UP) {
+               // Order of these tests matter
+               if (string[i] == ' ')
+                    string[i] = 'A';
+               else if (string[i] == 'Z')
+                    string[i] = ' ';
+               else
+                    string[i]++;
+          }
+          if (button == BUTTON_VALUE_DOWN) {
+               // Likewise, the order matters
+               if (string[i] == ' ')
+                    string[i] = 'Z';
+               else if (string[i] == 'A')
+                    string[i] = ' ';
+               else
+                    string[i]--;
+          }
+          if (button == BUTTON_NEXT) {
+               i = (i + 1) % maxLength;
+               // When moving onto next letter, initialise with the letter the
+               // user typed last. Also allow copying of spaces for quick string
+               // tail deletion.
+               if (string[i] == '\0' || (i && string[i-1] == ' '))
+                    string[i] = string[i-1];
+          }
+          if (button != NO_BUTTON) {
+               lcd.setCursor(0, 2);
+               lcd.print(string);
+               lcd.setCursor(i, 2);
+          }
+          if (button == BUTTON_ENTER)
+               break;
+     }
+     lcd.noCursor();
+     lcd.noBlink();
+     lcd.clear();
+}
+
 
 void reset_game()
 {
@@ -258,6 +388,7 @@ int queue_pop(void)
 
      return event;
 }
+
 
 
 bool button_pressed(int button)
