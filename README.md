@@ -18,8 +18,11 @@ The components laid out on a breadboard:
 When powered up, the game is in "main menu".
 
 - To play: press the two rightmost buttons down at the same time
-- To hear last score: -"- leftmost buttons -"-
 
-The score is reported by a series of beeps from the piezo speaker.
-One long beep for each 10 points, and after that one short beep for each single point.
-For example a score of 23 would "beeep beeep   bep bep bep".
+## Hiscores
+Highest score will be saved to the EEPROM so it persists across power cycles.
+When getting the highest score, you'll see the game asking for your name.
+Buttons 1 and 2 (the leftmost buttons) cycle characters left and right.
+Button 3 moves on to next position (cursor will wrap back to character position
+0 from the last character). Button 4 saves the name.
+
