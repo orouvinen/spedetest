@@ -12,7 +12,7 @@ The components laid out on a breadboard:
 - 4x LED
 - 4x 220ohm resistor
 - 4 push buttons
-- piezo speaker
+- 20x4 LCD display
 
 ## How to play
 When powered up, the game is in "main menu".
