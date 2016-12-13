@@ -59,13 +59,6 @@ LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
 void setup()
 {
      int i;
-     /*
-     hiscore.header = 0;
-     hiscore.score = 0;
-     strcpy(hiscore.nameTag, "        ");
-     EEPROM.put(EEPROM_HISCORE_ADDR, hiscore);
-     while(1);
-     */
 
      // Initialise I/O pins
      for (i = 0; i < 4; i++) {
