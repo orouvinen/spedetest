@@ -5,9 +5,9 @@
  * I/O pins
  */
 // Use analog pins from A0-A3 as regular GPIO pins for feeding the LEDs
-const int led_pins[] = {14, 15, 16, 17};
+const int ledPins[] = {14, 15, 16, 17};
 // Button pins for buttons from left to right
-const int btn_pins[] = {8, 9, 10, 11};
+const int btnPins[] = {8, 9, 10, 11};
 
 // Button functions for entering name tag for hiscore
 #define BUTTON_VALUE_DOWN 0  // Scroll to next letter in alphabet
@@ -19,30 +19,30 @@ const int btn_pins[] = {8, 9, 10, 11};
 /*
  * Timing
  */
-const int init_delay = 1000;  /* initial delay in ms */
-const int delay_dec  = 20;    /* delay decrement (ms) after each LED */
-const int min_delay  = 300;   /* final delay */
-unsigned long btn_delay = init_delay;
-unsigned long next_led_time = 0;
+const int initDelay = 1000;  /* initial delay in ms */
+const int delayDec  = 20;    /* delay decrement (ms) after each LED */
+const int minDelay  = 300;   /* final delay */
+unsigned long btnDelay = initDelay;
+unsigned long nextLedTime = 0;
 
 /*
  * Queue for storing led order
  */
 #define QUEUE_MAX 256
-int led_queue[QUEUE_MAX];
-int queue_size  = 0;
-int queue_begin = 0;
-int queue_end   = 0;
+int ledQueue[QUEUE_MAX];
+int queueSize  = 0;
+int queueBegin = 0;
+int queueEnd   = 0;
 
 /*
  * The button that was last processed.
  * This variable is used to prevent processing a button
  * being held down as multiple clicks on the same button
  */
-int last_button = -1;
+int lastButton = -1;
 
 enum state { STOPPED, RUNNING };
-int game_state = STOPPED;
+int gameState = STOPPED;
 unsigned short score = 0;
 
 #define EEPROM_HISCORE_ADDR 0x100
@@ -50,7 +50,7 @@ unsigned short score = 0;
 struct hiscore {
      unsigned short header;
      unsigned short score;
-     char nametag[8+1];
+     char nameTag[8+1];
 } hiscore;
 
 // LCD init
@@ -62,27 +62,27 @@ void setup()
      /*
      hiscore.header = 0;
      hiscore.score = 0;
-     strcpy(hiscore.nametag, "        ");
+     strcpy(hiscore.nameTag, "        ");
      EEPROM.put(EEPROM_HISCORE_ADDR, hiscore);
      while(1);
      */
 
      // Initialise I/O pins
      for (i = 0; i < 4; i++) {
-          pinMode(led_pins[i], OUTPUT);
-          pinMode(btn_pins[i], INPUT_PULLUP);
+          pinMode(ledPins[i], OUTPUT);
+          pinMode(btnPins[i], INPUT_PULLUP);
      }
      lcd.begin(20, 4);
      lcd.setCursor(0, 0);
 
      // Initialise random number generator
      randomSeed(analogRead(0));
-     reset_game();
+     resetGame();
 }
 
-void set_led_state(int led, int state)
+void setLedState(int led, int state)
 {
-     digitalWrite(led_pins[led], state);
+     digitalWrite(ledPins[led], state);
 }
 
 /*
@@ -91,65 +91,65 @@ void set_led_state(int led, int state)
 void loop()
 {
      unsigned long now = millis();
-     static bool showing_waiting_message = false;
+     static bool showingWaitingMessage = false;
 
-     if (game_state == STOPPED) {
-          if (!showing_waiting_message) {
-               print_waiting_message();
-               showing_waiting_message = true;
+     if (gameState == STOPPED) {
+          if (!showingWaitingMessage) {
+               printWaitingMessage();
+               showingWaitingMessage = true;
           }
 
           // Press two rightmost buttons to start the game
-          if (button_pressed(2) && button_pressed(3)) {
-               game_state = RUNNING;
+          if (buttonPressed(2) && buttonPressed(3)) {
+               gameState = RUNNING;
                // make sure the message prints after the game is over
-               showing_waiting_message = false;
+               showingWaitingMessage = false;
 
-               reset_game();
-               next_led_time = now + btn_delay;
+               resetGame();
+               nextLedTime = now + btnDelay;
           }
           return;
      }
 
      // Check if it's time to light up a new LED
-     if (now >= next_led_time) {
-          int next_led;
-          int current_led;
+     if (now >= nextLedTime) {
+          int nextLed;
+          int currentLed;
 
           // Set current LED off (if this is not the first led)
-          if (queue_size > 0) {
-               current_led = led_queue[queue_end - 1];
-               set_led_state(current_led, LOW);
+          if (queueSize > 0) {
+               currentLed = ledQueue[queueEnd - 1];
+               setLedState(currentLed, LOW);
           } else
-               current_led = last_button; // Will be -1 if this is the first LED
+               currentLed = lastButton; // Will be -1 if this is the first LED
 
           // Get new LED number
           do {
-               next_led = random(4);
-          } while (next_led == current_led);
+               nextLed = random(4);
+          } while (nextLed == currentLed);
 
           // Save led to queue
-          if (!queue_push(next_led))
-               reset_game(); // Player fell asleep, queue full
+          if (!queue_push(nextLed))
+               resetGame(); // Player fell asleep, queue full
 
-          set_led_state(next_led, HIGH);
+          setLedState(nextLed, HIGH);
 
           // Increase LED phase
-          if (btn_delay > min_delay)
-               btn_delay -= delay_dec;
-          next_led_time = now + btn_delay;
+          if (btnDelay > minDelay)
+               btnDelay -= delayDec;
+          nextLedTime = now + btnDelay;
      }
-     handle_input();
+     handleInput();
 }
 
-void print_eeprom_hiscore(void)
+void printEepromHiscore(void)
 {
      EEPROM.get(EEPROM_HISCORE_ADDR, hiscore);
      if (hiscore.header != HISCORE_HEADER) {
-          strcpy(hiscore.nametag, "");
+          strcpy(hiscore.nameTag, "");
           lcd.print("--");
      } else {
-          lcd.print(hiscore.nametag);
+          lcd.print(hiscore.nameTag);
           lcd.print(": ");
           lcd.print(hiscore.score);
      }
@@ -157,43 +157,43 @@ void print_eeprom_hiscore(void)
 
 
 // Print score during game
-void print_score(void)
+void printScore(void)
 {
      lcd.setCursor(0, 0);
      lcd.print(score);
 }
 
 // Main screen
-void print_waiting_message(void)
+void printWaitingMessage(void)
 {
      lcd.clear();
      lcd.setCursor(0, 0); lcd.print("Paras tulos:");
-     lcd.setCursor(0, 1); print_eeprom_hiscore();
+     lcd.setCursor(0, 1); printEepromHiscore();
      lcd.setCursor(0, 3); lcd.print("Napista lahtee...");
 }
 
 
 // Input handling during game
-void handle_input(void)
+void handleInput(void)
 {
      int button;
 
      /* Avoid reading the "game start" click when no leds have yet been lit up */
-     if (queue_end == 0)
+     if (queueEnd == 0)
           return;
 
-     if ((button = get_pressed_button()) != NO_BUTTON) {
+     if ((button = getPressedButton()) != NO_BUTTON) {
           int led = queue_pop();
           // Don't count it as a mistake to pre-click
           if (led == -1)
                return;
           if (led != button)
-               game_over();
+               gameOver();
           else {
                score++;
-               last_button = button;
-               set_led_state(led, LOW);
-               print_score();
+               lastButton = button;
+               setLedState(led, LOW);
+               printScore();
           }
      }
 }
@@ -202,44 +202,44 @@ void handle_input(void)
 // Checks if any of the buttons have been pressed.
 // If a button has been pressed, returns the button number (0-3).
 // Returns -1 if no button was pressed.
-int get_pressed_button()
+int getPressedButton()
 {
-     for (int i = 0; i < sizeof(btn_pins) / sizeof(btn_pins[0]); i++) {
+     for (int i = 0; i < sizeof(btnPins) / sizeof(btnPins[0]); i++) {
           // Handle pressed button
           // (but avoid accidental "double" click processing)
-          if (button_pressed(i)) {
-               if (last_button == i)
+          if (buttonPressed(i)) {
+               if (lastButton == i)
                     return NO_BUTTON;
 
-               last_button = i;
+               lastButton = i;
                return i;
           }
      }
-     last_button = NO_BUTTON;
+     lastButton = NO_BUTTON;
      return NO_BUTTON;
 }
 
 
-void game_over()
+void gameOver()
 {
      int i;
 
-     game_state = STOPPED;
+     gameState = STOPPED;
 
      // Flash the LEDs once
      for (i = 0; i < 4; i++)
-          digitalWrite(led_pins[i], HIGH);
+          digitalWrite(ledPins[i], HIGH);
 
      delay(1000);
 
      for (i = 0; i < 4; i++)
-          digitalWrite(led_pins[i], LOW);
+          digitalWrite(ledPins[i], LOW);
 
      lcd.clear();
 
      // Handle possible hiscore
      if (score > hiscore.score) {
-          get_hiscore_nametag();
+          getHiscoreNameTag();
           hiscore.score = score;
           hiscore.header = HISCORE_HEADER;
           EEPROM.put(EEPROM_HISCORE_ADDR, hiscore);
@@ -252,11 +252,11 @@ void game_over()
 }
 
 
-void get_hiscore_nametag(void)
+void getHiscoreNameTag(void)
 {
      lcd.clear();
-     strcpy(hiscore.nametag, "");
-     adjustStringValue("VOEJMAHOTON!", "ANNA NIMI:", hiscore.nametag, 8);
+     strcpy(hiscore.nameTag, "");
+     adjustStringValue("VOEJMAHOTON!", "ANNA NIMI:", hiscore.nameTag, 8);
 }
 
 // Prompts user for string input.
@@ -289,7 +289,7 @@ void adjustStringValue(
 
      int i = 0;
      for (;;) {
-          int button = get_pressed_button();
+          int button = getPressedButton();
 
           if (button == BUTTON_VALUE_UP) {
                // Order of these tests matter
@@ -331,45 +331,45 @@ void adjustStringValue(
 }
 
 
-void reset_game()
+void resetGame()
 {
      int i;
 
      // LEDs off
      for (i = 0; i < 4; i++)
-          digitalWrite(led_pins[i], LOW);
+          digitalWrite(ledPins[i], LOW);
 
      // Reset LED queue and return to inital LED interval
-     queue_reset();
-     btn_delay = init_delay;
-     last_button = -1;
+     queueReset();
+     btnDelay = initDelay;
+     lastButton = -1;
      score = 0;
      lcd.clear();
 }
 
 
-void queue_reset(void)
+void queueReset(void)
 {
      int i;
      for (i = 0; i < QUEUE_MAX; i++)
-          led_queue[i] = -1;
+          ledQueue[i] = -1;
 
-     queue_begin = 0;
-     queue_end = 0;
-     queue_size = 0;
+     queueBegin = 0;
+     queueEnd = 0;
+     queueSize = 0;
 }
 
 
 int queue_push(int x)
 {
-     if (queue_size == QUEUE_MAX)
+     if (queueSize == QUEUE_MAX)
           return 0; /* Queue is full */
 
-     led_queue[queue_end++] = x;
+     ledQueue[queueEnd++] = x;
 
-     if (queue_end >= QUEUE_MAX)
-          queue_end = 0;
-     queue_size++;
+     if (queueEnd >= QUEUE_MAX)
+          queueEnd = 0;
+     queueSize++;
      return 1;
 }
 
@@ -378,20 +378,20 @@ int queue_pop(void)
 {
      int event;
 
-     if (queue_size == 0)
+     if (queueSize == 0)
           return -1;  /* Queue empty, cannot pop */
 
-     event = led_queue[queue_begin++];
+     event = ledQueue[queueBegin++];
 
-     if (queue_begin >= QUEUE_MAX)
-          queue_begin = 0;
-     queue_size--;
+     if (queueBegin >= QUEUE_MAX)
+          queueBegin = 0;
+     queueSize--;
 
      return event;
 }
 
 
-bool button_pressed(int button)
+bool buttonPressed(int button)
 {
-     return !digitalRead(btn_pins[button]);
+     return !digitalRead(btnPins[button]);
 }
