@@ -197,7 +197,7 @@ void handleInput(void)
 // Returns -1 if no button was pressed.
 int getPressedButton()
 {
-     for (int i = 0; i < sizeof(btnPins) / sizeof(btnPins[0]); i++) {
+     for (int i = 0; i < (signed)(sizeof(btnPins) / sizeof(btnPins[0])); i++) {
           // Handle pressed button
           // (but avoid accidental "double" click processing)
           if (buttonPressed(i)) {
