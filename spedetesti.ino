@@ -76,7 +76,7 @@ void setup()
      lcd.setCursor(0, 0);
 
      // Initialise random number generator
-     randomSeed(analogRead(0));
+     randomSeed(analogRead(5));
      resetGame();
 }
 
